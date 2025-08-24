@@ -23,6 +23,21 @@
 #ifndef support_h
 #define support_h
 
+/*
+ * libSupport - ARM64 Compatibility Notes for iOS 18.0+
+ * 
+ * This library has been optimized for modern ARM64 platforms including:
+ * - iOS 18.0+ on ARM64 devices
+ * - macOS on Apple Silicon (M1/M2/M3+) 
+ * - All ARM64 Darwin-based systems
+ * 
+ * Key ARM64 optimizations:
+ * - Uses _NSGetEnviron() for robust environment manipulation (no Mach-O scanning)
+ * - Compatible with Apple's hardened memory protections
+ * - Respects ARM64 memory alignment and atomic operation requirements
+ * - Future-proof against iOS security model changes
+ */
+
 #include "wrapper.h"
 
 #ifdef __cplusplus
