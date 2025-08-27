@@ -86,6 +86,15 @@ typedef struct _SupportEntryInfo
 LS_EXPORT
 void SupportInitialize(SupportEntryInfo* info);
 
+/*
+ * Global flag to control environment hijacking method.
+ * When true: Uses fishhook to intercept getenv() calls (lightweight approach)
+ * When false: Uses _NSGetEnviron() to modify environment pointer directly (robust approach)
+ * Default: false (uses _NSGetEnviron() method)
+ */
+LS_EXPORT
+extern bool SupportUseFishhookEnvironmentHijacking;
+
 LS_EXPORT
 int SupportMemoryProtectEx(void* addr, size_t size, int protection);
 

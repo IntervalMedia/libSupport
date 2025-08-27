@@ -8,6 +8,17 @@
 // Returns a pointer to the environment pointer, allowing safe environment manipulation
 extern char ***_NSGetEnviron(void);
 
+/*
+ * Global flag to control environment hijacking method.
+ * When true: Uses fishhook to intercept getenv() calls (lightweight approach)
+ * When false: Uses _NSGetEnviron() to modify environment pointer directly (robust approach)
+ * Default: false (uses _NSGetEnviron() method for maximum robustness)
+ */
+bool SupportUseFishhookEnvironmentHijacking = false;
+
+// Original getenv function pointer for fishhook approach
+static char* (*original_getenv)(const char* name) = NULL;
+
 LS_STATIC NSString* _bundlePath;
 LS_STATIC NSString* _bundleIdentifier = nil;
 LS_STATIC NSString* _teamIdentifier = nil;
@@ -38,29 +49,72 @@ const char* SupportGetLibraryPath(void)
 }
 
 /*
- * Robust Environment Hijacking for iOS 18.0+ and ARM64
- * 
- * This implementation replaces the legacy Mach-O/GOT scanning approach with a modern,
- * Apple-sanctioned method using _NSGetEnviron(). This approach is:
- * 
- * - More robust: No complex Mach-O header scanning or GOT patching required
- * - ARM64 compatible: Works seamlessly on all ARM64 platforms (iOS, macOS, etc.)
- * - Memory protection safe: Compatible with Apple's hardened memory protections
- * - iOS 18.0+ future-proof: Uses documented Darwin APIs that remain stable
- * 
- * The _NSGetEnviron() function returns a pointer to the environment pointer,
- * allowing direct manipulation without memory scanning. This is the canonical
- * way to modify the environment on Darwin systems and is used by Apple's own
- * frameworks.
+ * Hooked getenv function for fishhook approach.
+ * Filters out sensitive environment variables that could reveal jailbreak/injection state.
  */
-LS_IGNORE LS_STATIC
-void hijackEnvironment(void) 
+LS_STATIC char* hooked_getenv(const char* name) 
 {
+    if (!name) {
+        return original_getenv ? original_getenv(name) : NULL;
+    }
+    
+    // Filter out variables that indicate simulator or injection
+    if (strcmp(name, "SIMULATOR_DEVICE_NAME") == 0 ||
+        strcmp(name, "DYLD_INSERT_LIBRARIES") == 0) {
+        LS_LOG("hooked_getenv() Filtering out request for: %s", name);
+        return NULL;  // Return NULL as if the variable doesn't exist
+    }
+    
+    // For all other variables, call the original getenv
+    return original_getenv ? original_getenv(name) : NULL;
+}
+
+/*
+ * Environment hijacking using fishhook to intercept getenv() calls.
+ * This is a lightweight approach that hooks getenv() function calls
+ * instead of modifying the actual environment pointer.
+ */
+LS_STATIC void hijackEnvironmentFishhook(void) 
+{
+    LS_LOG("hijackEnvironmentFishhook() Setting up fishhook for getenv()");
+    
+    // Set up the rebinding structure for fishhook
+    struct rebinding getenv_rebinding = {
+        .name = "getenv",
+        .replacement = hooked_getenv,
+        .replaced = (void**)&original_getenv
+    };
+    
+    // Apply the hook
+    int result = rebind_symbols(&getenv_rebinding, 1);
+    if (result != 0) {
+        LS_LOG("hijackEnvironmentFishhook() Failed to hook getenv(), error: %d", result);
+        return;
+    }
+    
+    LS_LOG("hijackEnvironmentFishhook() Successfully hooked getenv() function");
+    
+    // Test the hook by calling getenv on filtered variables
+    char* test1 = getenv("SIMULATOR_DEVICE_NAME");
+    char* test2 = getenv("DYLD_INSERT_LIBRARIES");
+    LS_LOG("hijackEnvironmentFishhook() Test calls - SIMULATOR_DEVICE_NAME: %s, DYLD_INSERT_LIBRARIES: %s", 
+           test1 ? test1 : "NULL", test2 ? test2 : "NULL");
+}
+
+/*
+ * Environment hijacking using _NSGetEnviron() to modify environment pointer directly.
+ * This is the robust approach that actually modifies the environment data structure.
+ * Compatible with iOS 18.0+ and ARM64 architectures.
+ */
+LS_STATIC void hijackEnvironmentDirect(void) 
+{
+    LS_LOG("hijackEnvironmentDirect() Using _NSGetEnviron() approach");
+    
     // Log the original environment for debugging
-    LS_LOG("hijackEnvironment() Original environment before modification:");
+    LS_LOG("hijackEnvironmentDirect() Original environment before modification:");
     for(char* *env = environ; *env != 0; env++)
     {
-        LS_LOG("hijackEnvironment() Env var: %s", *env);
+        LS_LOG("hijackEnvironmentDirect() Env var: %s", *env);
     }
 
     /*
@@ -72,11 +126,11 @@ void hijackEnvironment(void)
     char ***environPtr = _NSGetEnviron();
     if (!environPtr) 
     {
-        LS_LOG("hijackEnvironment() Failed to get environment pointer via _NSGetEnviron()");
+        LS_LOG("hijackEnvironmentDirect() Failed to get environment pointer via _NSGetEnviron()");
         return;
     }
 
-    LS_LOG("hijackEnvironment() Successfully acquired environment pointer: %p", (void *)environPtr);
+    LS_LOG("hijackEnvironmentDirect() Successfully acquired environment pointer: %p", (void *)environPtr);
 
     // Count existing environment variables
     size_t count = 0;
@@ -104,7 +158,7 @@ void hijackEnvironment(void)
         if (strstr(entry, "SIMULATOR_DEVICE_NAME") != NULL ||
             strstr(entry, "DYLD_INSERT_LIBRARIES") != NULL) 
         {
-            LS_LOG("hijackEnvironment() Filtering out: %s", entry);
+            LS_LOG("hijackEnvironmentDirect() Filtering out: %s", entry);
             continue;
         }
         
@@ -123,16 +177,39 @@ void hijackEnvironment(void)
      */
     *environPtr = newEnviron;
 
-    LS_LOG("hijackEnvironment() Successfully updated environment pointer");
+    LS_LOG("hijackEnvironmentDirect() Successfully updated environment pointer");
 
     // Verify the modifications took effect
-    LS_LOG("hijackEnvironment() Modified environment after hijacking:");
+    LS_LOG("hijackEnvironmentDirect() Modified environment after hijacking:");
     for (size_t i = 0; i < newIndex; i++) 
     {
         if (newEnviron[i] != NULL) 
         {
-            LS_LOG("hijackEnvironment() New env var %zu: %s", i, newEnviron[i]);
+            LS_LOG("hijackEnvironmentDirect() New env var %zu: %s", i, newEnviron[i]);
         }
+    }
+}
+
+/*
+ * Robust Environment Hijacking for iOS 18.0+ and ARM64
+ * 
+ * This implementation provides two approaches for environment hijacking:
+ * 1. Fishhook approach: Intercepts getenv() calls (lightweight, controlled by global flag)
+ * 2. Direct approach: Uses _NSGetEnviron() to modify environment pointer (robust, default)
+ * 
+ * The method is controlled by the global SupportUseFishhookEnvironmentHijacking flag.
+ * Both approaches filter out SIMULATOR_DEVICE_NAME and DYLD_INSERT_LIBRARIES to hide
+ * jailbreak/injection indicators.
+ */
+LS_IGNORE LS_STATIC
+void hijackEnvironment(void) 
+{
+    if (SupportUseFishhookEnvironmentHijacking) {
+        LS_LOG("hijackEnvironment() Using fishhook approach for getenv() interception");
+        hijackEnvironmentFishhook();
+    } else {
+        LS_LOG("hijackEnvironment() Using direct approach with _NSGetEnviron()");
+        hijackEnvironmentDirect();
     }
 }
 
