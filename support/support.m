@@ -187,38 +187,13 @@ void _support_invalidate_restricted_loadcommands(void)
 
 			if(isCPathRestricted(dylib_name))
 			{
-				LS_LOG("SupportInvalidateRestrictedLoadCommands() detected: %s but iOS said 'fuck you!' read-only", dylib_name);
-                //dylib_cmd->cmd = LC_ID_DYLIB; //spoof
-				//strncpy(dylib_name, "masked", dylib_cmd->dylib.name.offset);
-
+				LS_LOG("SupportInvalidateRestrictedLoadCommands() detected restricted dylib: %s", dylib_name);
                 
-				//static uint32_t patch = LC_ID_DYLIB;
-
-				/*
-				void* address = (void *)&dylib_cmd->cmd;
-				uintptr_t page_start = _supportmem_pagestart(address);
-    			size_t page_size = _supportmem_pagesize(address, dylib_cmd->cmdsize);
-
-				_supportmem_protect((void *)page_start, page_size, VM_PROT_READ|VM_PROT_WRITE);
-				dylib_cmd->cmd = LC_ID_DYLIB;
-				//if(!_supportmem_copy((void *)&dylib_cmd->cmd, (uint8_t *)&patch, sizeof(patch))) return;
-				_supportmem_protect((void *)page_start, page_size, VM_PROT_READ);
-                */
-                
-				static const char* patch = "@rpath/libPatched.dylib";
-				LS_UNUSED(patch);
-				//if(_supportmem_code_patch((void *)dylib_name, (uint8_t *)patch, strlen(patch)) != LS_PATCH_SUCCESS)
-				{
-					LS_LOG("_supportmem_code_patch: dylib_cmd->cmd failed!");
-				}
-
-				/*
-				if(_supportmem_protect((void *)dylib_name, strlen(dylib_name), LS_VM_PROT_RWX))
-				{
-                	strncpy(dylib_name, patch, strlen(patch));
-					_supportmem_protect((void *)dylib_name, strlen(dylib_name), VM_PROT_READ);
-				}
-				*/
+				// TODO: Implement proper dylib command invalidation
+				// Currently disabled due to memory protection issues
+				// Plan: modify dylib_cmd->cmd to LC_ID_DYLIB or patch dylib_name
+				
+				LS_LOG("_supportmem_code_patch: dylib invalidation not implemented yet");
 			}
 		}
 		lc = (const struct load_command*)((uintptr_t)lc + lc->cmdsize);
