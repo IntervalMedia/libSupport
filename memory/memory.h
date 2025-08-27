@@ -22,7 +22,4 @@ LS_PRIVATE uintptr_t _supportmem_pageoffset(void* address);
 
 LS_PRIVATE void _supportmem_clearcache(void* start, size_t size);
 
-// SYS
-LS_PRIVATE void *  __mmap(void *, size_t, int, int, int, off_t);
-
 #endif //memory_h

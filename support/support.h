@@ -44,7 +44,15 @@
 extern "C" {
 #endif //__cplusplus
 
-// Provides compatibility for Just-In-Time (JIT) compilation and debug mode.
+/**
+ * Patches memory at the specified address with the given buffer.
+ * Provides compatibility for Just-In-Time (JIT) compilation and debug mode.
+ *
+ * @param addr The memory address to patch
+ * @param buffer The buffer containing the patch data
+ * @param size The size of the patch data
+ * @return LSM_SUCCESS on success, or appropriate error code on failure
+ */
 LS_EXPORT
 int SupportCodePatchEx(void* addr, const uint8_t* buffer, size_t size);
 
@@ -106,10 +114,24 @@ typedef struct _SupportHookInfo
 } SupportHookInfo;
 
 // Provides compatibility for Just-In-Time (JIT) compilation.
+/**
+ * DEPRECATED: Hooks a function by replacing it with a replacement function.
+ * Please use Dobby instead for more reliable function hooking.
+ *
+ * @param hookInfo Structure containing address, replacement, and original function pointer
+ * @return LSM_SUCCESS on success, or appropriate error code on failure
+ */
 LS_EXPORT
 int LS_DEPRECATED(SupportHookFunctionEx(SupportHookInfo hookInfo),
     "Please use Dobby instead.");
 
+/**
+ * DEPRECATED: Destroys a hook and frees associated memory.
+ * Please use Dobby instead for more reliable function hooking.
+ *
+ * @param hookInfo Structure containing the hook information to destroy
+ * @return LSM_SUCCESS on success, or appropriate error code on failure
+ */
 LS_EXPORT
 int LS_DEPRECATED(SupportDestroy(SupportHookInfo hookInfo),
     "Please use Dobby instead.");

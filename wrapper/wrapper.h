@@ -81,7 +81,7 @@
  * for some reason, this actually works in our JIT environment (x_x).
  * maybe Apple changed something with JIT in iOS 15+ ?
  */
-#define LSM_PROT_ALL 	(LS_PROT_READ|LS_PROT_WRITE|LS_PROT_EXEC)
+#define LSM_PROT_ALL 	(LSM_PROT_READ|LSM_PROT_WRITE|LSM_PROT_EXEC)
 
 /* libSupport memory operation return codes */
 #define LSM_FAILURE 			0
@@ -92,6 +92,10 @@
 #define LSM_INVALID_LENGTH 		5
 #define LSM_PROTECTION_FAILURE 	6
 #define LSM_INVALID_ARGUMENTS 	69420 /* :p */
+
+/* legacy compatibility - use LSM_* constants instead */
+#define LS_PATCH_SUCCESS		LSM_SUCCESS
+#define LS_PATCH_FAILURE		LSM_FAILURE
 
 /* debugging stuff :) */
 #ifndef LS_DEBUG

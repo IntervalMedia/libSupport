@@ -1,4 +1,6 @@
 #include <libkern/OSCacheControl.h>
+#include <errno.h>
+#include <string.h>
 #include "mach/mach_vm.h"
 #include "memory.h"
 #include "support_priv.h"
@@ -150,7 +152,7 @@ int _supportmem_code_patch(void* address, const uint8_t* buffer, size_t size)
     
     //LS_LOG("_supportmem_code_patch() page is (NOT) writable, remapping required.");
     
-    void* remap_page = __mmap(NULL, page_size, (LSM_PROT_READ|LSM_PROT_WRITE),
+    void* remap_page = mmap(NULL, page_size, (LSM_PROT_READ|LSM_PROT_WRITE),
                              (MAP_ANONYMOUS|MAP_PRIVATE), -1, 0);
 
     if(LS_UNLIKELY(remap_page == NULL || remap_page == MAP_FAILED))

@@ -232,38 +232,13 @@ void _support_invalidate_restricted_loadcommands(void)
 
 			if(isCPathRestricted(dylib_name))
 			{
-				LS_LOG("SupportInvalidateRestrictedLoadCommands() detected: %s but iOS said 'fuck you!' read-only", dylib_name);
-                //dylib_cmd->cmd = LC_ID_DYLIB; //spoof
-				//strncpy(dylib_name, "masked", dylib_cmd->dylib.name.offset);
-
+				LS_LOG("SupportInvalidateRestrictedLoadCommands() detected restricted dylib: %s", dylib_name);
                 
-				//static uint32_t patch = LC_ID_DYLIB;
-
-				/*
-				void* address = (void *)&dylib_cmd->cmd;
-				uintptr_t page_start = _supportmem_pagestart(address);
-    			size_t page_size = _supportmem_pagesize(address, dylib_cmd->cmdsize);
-
-				_supportmem_protect((void *)page_start, page_size, VM_PROT_READ|VM_PROT_WRITE);
-				dylib_cmd->cmd = LC_ID_DYLIB;
-				//if(!_supportmem_copy((void *)&dylib_cmd->cmd, (uint8_t *)&patch, sizeof(patch))) return;
-				_supportmem_protect((void *)page_start, page_size, VM_PROT_READ);
-                */
-                
-				static const char* patch = "@rpath/libPatched.dylib";
-				LS_UNUSED(patch);
-				//if(_supportmem_code_patch((void *)dylib_name, (uint8_t *)patch, strlen(patch)) != LS_PATCH_SUCCESS)
-				{
-					LS_LOG("_supportmem_code_patch: dylib_cmd->cmd failed!");
-				}
-
-				/*
-				if(_supportmem_protect((void *)dylib_name, strlen(dylib_name), LS_VM_PROT_RWX))
-				{
-                	strncpy(dylib_name, patch, strlen(patch));
-					_supportmem_protect((void *)dylib_name, strlen(dylib_name), VM_PROT_READ);
-				}
-				*/
+				// TODO: Implement proper dylib command invalidation
+				// Currently disabled due to memory protection issues
+				// Plan: modify dylib_cmd->cmd to LC_ID_DYLIB or patch dylib_name
+				
+				LS_LOG("_supportmem_code_patch: dylib invalidation not implemented yet");
 			}
 		}
 		lc = (const struct load_command*)((uintptr_t)lc + lc->cmdsize);
@@ -450,20 +425,34 @@ int SupportHookFunctionEx(SupportHookInfo hookInfo)
 	void* replacement = hookInfo.replacement;
 	void** original = hookInfo.original;
 
-	return _supportmem_hookfunction_64(address, replacement, original);;
+	// Add basic parameter validation
+	if (address == NULL || replacement == NULL) {
+		LS_LOG("SupportHookFunctionEx(): invalid parameters (address=%p, replacement=%p)", address, replacement);
+		return LSM_INVALID_ARGUMENTS;
+	}
+
+	return _supportmem_hookfunction_64(address, replacement, original);
 }
  
 int SupportDestroy(SupportHookInfo hookInfo)
 { 
-	if(hookInfo.original != NULL)
+	// Check if we have a valid pointer to a pointer and if the dereferenced pointer is not NULL
+	if(hookInfo.original != NULL && *hookInfo.original != NULL)
 	{ 
-		free(hookInfo.original); 
+		free(*hookInfo.original);
+		*hookInfo.original = NULL; // Nullify the caller's pointer to prevent double-free
 	} 
 	return LSM_SUCCESS;
 }
  
 int SupportCodePatchEx(void* addr, const uint8_t* buffer, size_t size)
-{	return _supportmem_code_patch(addr, buffer, size);
+{
+	// Add basic parameter validation
+	if (addr == NULL || buffer == NULL || size == 0) {
+		LS_LOG("SupportCodePatchEx(): invalid parameters (addr=%p, buffer=%p, size=%zu)", addr, buffer, size);
+		return LSM_INVALID_ARGUMENTS;
+	}
+	return _supportmem_code_patch(addr, buffer, size);
 }
  
 void SupportRunOnMainQueueWithoutDeadlocking(void (*callback)(void*), void* data)
