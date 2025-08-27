@@ -405,20 +405,34 @@ int SupportHookFunctionEx(SupportHookInfo hookInfo)
 	void* replacement = hookInfo.replacement;
 	void** original = hookInfo.original;
 
-	return _supportmem_hookfunction_64(address, replacement, original);;
+	// Add basic parameter validation
+	if (address == NULL || replacement == NULL) {
+		LS_LOG("SupportHookFunctionEx(): invalid parameters (address=%p, replacement=%p)", address, replacement);
+		return LSM_INVALID_ARGUMENTS;
+	}
+
+	return _supportmem_hookfunction_64(address, replacement, original);
 }
  
 int SupportDestroy(SupportHookInfo hookInfo)
 { 
-	if(hookInfo.original != NULL)
+	// Check if we have a valid pointer to a pointer and if the dereferenced pointer is not NULL
+	if(hookInfo.original != NULL && *hookInfo.original != NULL)
 	{ 
-		free(hookInfo.original); 
+		free(*hookInfo.original);
+		*hookInfo.original = NULL; // Nullify the caller's pointer to prevent double-free
 	} 
 	return LSM_SUCCESS;
 }
  
 int SupportCodePatchEx(void* addr, const uint8_t* buffer, size_t size)
-{	return _supportmem_code_patch(addr, buffer, size);
+{
+	// Add basic parameter validation
+	if (addr == NULL || buffer == NULL || size == 0) {
+		LS_LOG("SupportCodePatchEx(): invalid parameters (addr=%p, buffer=%p, size=%zu)", addr, buffer, size);
+		return LSM_INVALID_ARGUMENTS;
+	}
+	return _supportmem_code_patch(addr, buffer, size);
 }
  
 void SupportRunOnMainQueueWithoutDeadlocking(void (*callback)(void*), void* data)

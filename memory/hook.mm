@@ -119,7 +119,13 @@ int _supportmem_hookfunction_64(void* function, void* replacement, void** result
 }
 */
 
-// I have expended all resources on this, time to use somthing else.
+// TODO: Implement proper function hooking
+// For now, return failure to indicate the function is not implemented
 int _supportmem_hookfunction_64(void* function, void* replacement, void** result) 
 {
+    if (result) {
+        *result = NULL;
+    }
+    LS_LOG("_supportmem_hookfunction_64(): function not implemented yet, returning failure");
+    return LSM_FAILURE;
 }
