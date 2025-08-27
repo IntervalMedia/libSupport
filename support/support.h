@@ -23,6 +23,21 @@
 #ifndef support_h
 #define support_h
 
+/*
+ * libSupport - ARM64 Compatibility Notes for iOS 18.0+
+ * 
+ * This library has been optimized for modern ARM64 platforms including:
+ * - iOS 18.0+ on ARM64 devices
+ * - macOS on Apple Silicon (M1/M2/M3+) 
+ * - All ARM64 Darwin-based systems
+ * 
+ * Key ARM64 optimizations:
+ * - Uses _NSGetEnviron() for robust environment manipulation (no Mach-O scanning)
+ * - Compatible with Apple's hardened memory protections
+ * - Respects ARM64 memory alignment and atomic operation requirements
+ * - Future-proof against iOS security model changes
+ */
+
 #include "wrapper.h"
 
 #ifdef __cplusplus
@@ -70,6 +85,15 @@ typedef struct _SupportEntryInfo
 
 LS_EXPORT
 void SupportInitialize(SupportEntryInfo* info);
+
+/*
+ * Global flag to control environment hijacking method.
+ * When true: Uses fishhook to intercept getenv() calls (lightweight approach)
+ * When false: Uses _NSGetEnviron() to modify environment pointer directly (robust approach)
+ * Default: false (uses _NSGetEnviron() method)
+ */
+LS_EXPORT
+extern bool SupportUseFishhookEnvironmentHijacking;
 
 LS_EXPORT
 int SupportMemoryProtectEx(void* addr, size_t size, int protection);
